@@ -5,10 +5,10 @@ const CANVAS_HEIGHT = 600;
 const TILE_SIZE = 32;
 const PLAYER_SIZE = 32;
 
-const TILESET_URL = "https://opengameart.org/sites/default/files/lpc-tile-atlas.png";
-const PLAYER_SPRITE_URL = "https://opengameart.org/sites/default/files/lpc-character.png";
-const MONSTER_SPRITE_URL = "https://opengameart.org/sites/default/files/lpc-slime.png";
-const ALLY_SPRITE_URL = "https://opengameart.org/sites/default/files/lpc-female-mage.png";
+const TILESET_URL = "/images/lpc-tile-atlas.png";
+const PLAYER_SPRITE_URL = "/images/lpc-character.png";
+const MONSTER_SPRITE_URL = "/images/lpc-slime.png";
+const ALLY_SPRITE_URL = "/images/lpc-female-mage.png";
 
 const mapData = [
   [0,0,0,0,0,0,0,0,0,0,0,0],
@@ -137,6 +137,7 @@ export default function GameCanvas({ character, onEnterBattle }) {
     console.log('drawLoop 진입, imagesLoaded:', imagesLoaded);
     let running = true;
     function drawLoop() {
+      if (!canvasRef.current) return;
       const ctx = canvasRef.current.getContext("2d");
       ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
       // 맵 타일셋 렌더링
@@ -262,6 +263,7 @@ export default function GameCanvas({ character, onEnterBattle }) {
         const ey = enemy.y + enemy.size / 2;
         const dist = Math.hypot(px - ex, py - ey);
         if (dist < PLAYER_SIZE / 2 + enemy.size / 2) {
+          console.log('onEnterBattle 호출:', enemy);
           onEnterBattle({
             name: enemy.name,
             hp: 100,
