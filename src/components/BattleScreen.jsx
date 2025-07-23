@@ -162,6 +162,7 @@ export default function BattleScreen({ character, enemy = DEFAULT_ENEMY, onWin, 
     setTurn("enemy");
   }
 
+  // 보스 페이즈별 스킬/패턴
   function handleEnemyAction() {
     if (battleEnd) return;
     setTimeout(() => {
@@ -172,7 +173,25 @@ export default function BattleScreen({ character, enemy = DEFAULT_ENEMY, onWin, 
         dmg *= 0.5;
         msg += " (방어로 피해 감소)";
       }
-      new Howl({ src: [SFX_HIT], volume: 0.7 }).play();
+      // 페이즈2: 연속공격/광역기/상태이상
+      if (enemy?.isBoss && bossPhase === 2 && Math.random() < 0.5) {
+        // 광역기(강한 한방)
+        dmg *= 1.5;
+        msg = `${foe.name}의 광역기! ${dmg.toFixed(0)} 피해 (상태이상: 화상)`;
+        setPlayer((p) => ({ ...p, status: [...p.status, "burn"] }));
+      } else if (enemy?.isBoss && bossPhase === 2 && Math.random() < 0.5) {
+        // 연속공격(2회)
+        dmg = Math.floor(dmg * 0.7);
+        msg = `${foe.name}의 연속공격! 각 ${dmg} 피해`;
+        setPlayer((p) => {
+          let hp1 = Math.max(0, p.hp - dmg);
+          let hp2 = Math.max(0, hp1 - dmg);
+          return { ...p, hp: hp2, status: p.status.filter((s) => s !== "guard") };
+        });
+        setLog((l) => [...l, `${msg}`]);
+        setTurn("player");
+        return;
+      }
       setPlayerAnim("hit-shake");
       setTimeout(() => setPlayerAnim(""), 400);
       setPlayer((p) => {
