@@ -1,339 +1,164 @@
-import React, { useRef, useEffect } from "react";
-import { Howl } from 'howler';
+import React, { useRef, useEffect, useState } from "react";
 
 const CANVAS_WIDTH = 400;
 const CANVAS_HEIGHT = 600;
 const PLAYER_SIZE = 32;
-const PLAYER_SPEED = 4;
-const BULLET_RADIUS = 12;
-const BULLET_MIN_SPEED = 2;
-const BULLET_MAX_SPEED = 7;
-const BULLET_SPAWN_INTERVAL_START = 1200; // ms
-const BULLET_SPAWN_INTERVAL_MIN = 400; // ms
-const DIFFICULTY_INCREASE_INTERVAL = 3000; // ms
 
-function getRandomEdgePosition() {
-  // 탄막이 화면 위, 좌, 우에서 랜덤하게 등장
-  const edge = Math.floor(Math.random() * 3);
-  if (edge === 0) {
-    // 위
-    return {
-      x: Math.random() * (CANVAS_WIDTH - BULLET_RADIUS * 2) + BULLET_RADIUS,
-      y: -BULLET_RADIUS,
-      vx: 0,
-      vy: 1,
-    };
-  } else if (edge === 1) {
-    // 왼쪽
-    return {
-      x: -BULLET_RADIUS,
-      y: Math.random() * (CANVAS_HEIGHT - BULLET_RADIUS * 2) + BULLET_RADIUS,
-      vx: 1,
-      vy: 0,
-    };
-  } else {
-    // 오른쪽
-    return {
-      x: CANVAS_WIDTH + BULLET_RADIUS,
-      y: Math.random() * (CANVAS_HEIGHT - BULLET_RADIUS * 2) + BULLET_RADIUS,
-      vx: -1,
-      vy: 0,
-    };
-  }
-}
+// 오브젝트 종류 예시
+const MAP_OBJECTS = [
+  { id: 1, type: "tree", x: 60, y: 200, w: 40, h: 48 },
+  { id: 2, type: "rock", x: 200, y: 400, w: 36, h: 36 },
+  { id: 3, type: "chest", x: 320, y: 120, w: 32, h: 28 },
+];
 
-export default function GameCanvas({ onGameOver, character, onEnterBattle }) {
+// 몬스터/보스 예시
+const MONSTERS = [
+  { id: 1, x: 80, y: 120, size: 36, active: true, name: "파이어 슬라임", attribute: "fire", color: "#f87171", hp: 80, maxHp: 80, isBoss: false },
+  { id: 2, x: 250, y: 300, size: 36, active: true, name: "고블린", attribute: "earth", color: "#a3a3a3", hp: 100, maxHp: 100, isBoss: false },
+  { id: 3, x: 180, y: 80, size: 44, active: true, name: "보스: 그림자 군주", attribute: "dark", color: "#818cf8", hp: 200, maxHp: 200, isBoss: true },
+  { id: 4, x: 320, y: 500, size: 44, active: true, name: "보스: 대지의 수호자", attribute: "earth", color: "#a3e635", hp: 180, maxHp: 180, isBoss: true },
+];
+
+// 동료 예시
+const ALLIES = [
+  { id: 1, name: "세라", x: 100, y: 500, size: 28, color: "#a78bfa", joined: false },
+];
+
+export default function GameCanvas({ character, onEnterBattle }) {
   const canvasRef = useRef(null);
-  const requestRef = useRef();
-  const runningRef = useRef(true);
-  const scoreRef = useRef(0);
   const playerRef = useRef({
-    x: CANVAS_WIDTH / 2 - (character?.size || 32) / 2,
-    y: CANVAS_HEIGHT - (character?.size || 32) - 16,
+    x: CANVAS_WIDTH / 2 - (character?.size || PLAYER_SIZE) / 2,
+    y: CANVAS_HEIGHT - (character?.size || PLAYER_SIZE) - 16,
     vx: 0,
     vy: 0,
   });
-  const bulletsRef = useRef([]);
-  const keysRef = useRef({});
-  const bulletIntervalRef = useRef(BULLET_SPAWN_INTERVAL_START);
-  const lastBulletTimeRef = useRef(0);
-  const lastDifficultyIncreaseRef = useRef(0);
-  const bulletSpeedRef = useRef(BULLET_MIN_SPEED);
-  const startTimeRef = useRef(Date.now());
-  // 특수효과 상태
-  const [specialState, setSpecialState] = React.useState({
-    used: false, // 리아드: 무적 1회 사용 여부
-    invincible: false, // 리아드/카일: 무적 상태
-    slow: false, // 세라: 감속 상태
-    slowUsed: false, // 세라: 감속 1회 사용 여부
-    stealth: false, // 카일: 은신 상태
-    stealthCooldown: 0, // 카일: 은신 쿨타임
-    shield: 0, // 이리스: 보호막 개수
-    shieldAnim: false, // 이리스: 보호막 애니메이션
-  });
-  const [eventText, setEventText] = React.useState("");
-  const eventTimes = [30, 60, 90]; // 초 단위
-  const eventMessages = [
-    "[균형의 파편]을 향한 여정이 시작된다...",
-    "공허의 군주가 어둠 속에서 움직이기 시작했다.",
-    "에테르의 흐름이 불안정해진다. 운명의 선택이 다가온다..."
-  ];
-  // 적 상태
-  const [enemy, setEnemy] = React.useState({
-    x: 100,
-    y: 100,
-    size: 36,
-    active: true,
-    name: "파이어 슬라임",
-    attribute: "fire",
-    color: "#f87171",
-    hp: 80,
-    maxHp: 80,
-  });
-  // 동적 배경 효과 종류 (비, 눈, 안개)
-  const [weather, setWeather] = React.useState(() => {
-    const effects = ["rain", "snow", "fog", null];
-    return effects[Math.floor(Math.random() * effects.length)];
-  });
+  const [enemies, setEnemies] = useState(MONSTERS);
+  const [objects, setObjects] = useState(MAP_OBJECTS);
+  const [allies, setAllies] = useState(ALLIES);
+  const [storyFlags, setStoryFlags] = useState({ allyJoined: false, boss1Defeated: false, boss2Defeated: false, chestOpened: false });
 
-  // 키 입력 처리 (특수효과)
+  // 플레이어 이동(키보드)
   useEffect(() => {
-    const handleKeyDown = (e) => {
-      keysRef.current[e.key] = true;
-      // 세라: Shift로 감속 발동
-      if (character?.id === "sera" && e.key === "Shift" && !specialState.slowUsed) {
-        setSpecialState((s) => ({ ...s, slow: true, slowUsed: true }));
-        setTimeout(() => setSpecialState((s) => ({ ...s, slow: false })), 3000);
-      }
-      // 카일: Space로 은신 발동
-      if (character?.id === "kyle" && e.key === " " && specialState.stealthCooldown <= 0 && !specialState.stealth) {
-        setSpecialState((s) => ({ ...s, stealth: true, stealthCooldown: 8 }));
-        setTimeout(() => setSpecialState((s) => ({ ...s, stealth: false })), 1000);
-      }
-    };
-    const handleKeyUp = (e) => {
-      keysRef.current[e.key] = false;
-    };
+    const keys = {};
+    const handleKeyDown = (e) => { keys[e.key] = true; };
+    const handleKeyUp = (e) => { keys[e.key] = false; };
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("keyup", handleKeyUp);
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-      window.removeEventListener("keyup", handleKeyUp);
-    };
-  }, [character, specialState.slowUsed, specialState.stealth, specialState.stealthCooldown]);
-
-  // 카일: 은신 쿨타임 감소
-  useEffect(() => {
-    if (character?.id === "kyle" && specialState.stealthCooldown > 0) {
-      const timer = setInterval(() => {
-        setSpecialState((s) => ({ ...s, stealthCooldown: Math.max(0, s.stealthCooldown - 1) }));
-      }, 1000);
-      return () => clearInterval(timer);
+    let running = true;
+    function moveLoop() {
+      const speed = character?.speed || 4;
+      if (keys["ArrowLeft"] || keys["a"]) playerRef.current.x -= speed;
+      if (keys["ArrowRight"] || keys["d"]) playerRef.current.x += speed;
+      if (keys["ArrowUp"] || keys["w"]) playerRef.current.y -= speed;
+      if (keys["ArrowDown"] || keys["s"]) playerRef.current.y += speed;
+      playerRef.current.x = Math.max(0, Math.min(CANVAS_WIDTH - (character?.size || PLAYER_SIZE), playerRef.current.x));
+      playerRef.current.y = Math.max(0, Math.min(CANVAS_HEIGHT - (character?.size || PLAYER_SIZE), playerRef.current.y));
+      if (running) requestAnimationFrame(moveLoop);
     }
-  }, [character, specialState.stealthCooldown]);
-
-  // 이리스: 30초마다 자동 보호막 (최대 2회)
-  React.useEffect(() => {
-    if (character?.id !== "iris") return;
-    setSpecialState((s) => ({ ...s, shield: 1 })); // 시작 시 1회 부여
-    const interval = setInterval(() => {
-      setSpecialState((s) => ({ ...s, shield: Math.min(2, s.shield + 1) }));
-    }, 30000);
-    return () => clearInterval(interval);
+    moveLoop();
+    return () => { running = false; window.removeEventListener("keydown", handleKeyDown); window.removeEventListener("keyup", handleKeyUp); };
   }, [character]);
-
-  // 스토리 이벤트 타이머
-  React.useEffect(() => {
-    let timers = [];
-    eventTimes.forEach((sec, idx) => {
-      timers.push(setTimeout(() => {
-        setEventText(eventMessages[idx]);
-        setTimeout(() => setEventText(""), 3000);
-      }, sec * 1000));
-    });
-    return () => timers.forEach(clearTimeout);
-  }, []);
-
-  // 적 랜덤 등장/이동 (간단 버전)
-  React.useEffect(() => {
-    if (!enemy.active) return;
-    const move = setInterval(() => {
-      setEnemy((e) => ({
-        ...e,
-        x: Math.random() * (CANVAS_WIDTH - e.size),
-        y: Math.random() * (CANVAS_HEIGHT / 2 - e.size),
-      }));
-    }, 2000);
-    return () => clearInterval(move);
-  }, [enemy.active]);
-
-  // 게임 루프
+  // 터치/드래그로 플레이어 이동 (모바일 지원)
   useEffect(() => {
-    runningRef.current = true;
-    scoreRef.current = 0;
-    bulletsRef.current = [];
-    bulletIntervalRef.current = BULLET_SPAWN_INTERVAL_START;
-    bulletSpeedRef.current = BULLET_MIN_SPEED;
-    lastBulletTimeRef.current = 0;
-    lastDifficultyIncreaseRef.current = 0;
-    startTimeRef.current = Date.now();
-
-    function gameLoop() {
-      if (!runningRef.current) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    let dragging = false;
+    let offsetX = 0, offsetY = 0;
+    function getTouchPos(e) {
+      const rect = canvas.getBoundingClientRect();
+      const touch = e.touches[0];
+      return {
+        x: touch.clientX - rect.left,
+        y: touch.clientY - rect.top,
+      };
+    }
+    function onTouchStart(e) {
+      dragging = true;
+      const pos = getTouchPos(e);
+      offsetX = pos.x - playerRef.current.x;
+      offsetY = pos.y - playerRef.current.y;
+    }
+    function onTouchMove(e) {
+      if (!dragging) return;
+      const pos = getTouchPos(e);
+      playerRef.current.x = Math.max(0, Math.min(CANVAS_WIDTH - (character?.size || PLAYER_SIZE), pos.x - offsetX));
+      playerRef.current.y = Math.max(0, Math.min(CANVAS_HEIGHT - (character?.size || PLAYER_SIZE), pos.y - offsetY));
+    }
+    function onTouchEnd() { dragging = false; }
+    canvas.addEventListener('touchstart', onTouchStart);
+    canvas.addEventListener('touchmove', onTouchMove);
+    canvas.addEventListener('touchend', onTouchEnd);
+    return () => {
+      canvas.removeEventListener('touchstart', onTouchStart);
+      canvas.removeEventListener('touchmove', onTouchMove);
+      canvas.removeEventListener('touchend', onTouchEnd);
+    };
+  }, [character]);
+  // 맵/플레이어/몬스터/오브젝트/동료 그리기 및 충돌 체크
+  useEffect(() => {
+    let running = true;
+    function drawLoop() {
       const ctx = canvasRef.current.getContext("2d");
       ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-
-      // 플레이어 이동
-      const player = playerRef.current;
-      const speed = character?.speed || PLAYER_SPEED;
-      if (keysRef.current["ArrowLeft"]) player.x -= speed;
-      if (keysRef.current["ArrowRight"]) player.x += speed;
-      if (keysRef.current["ArrowUp"]) player.y -= speed;
-      if (keysRef.current["ArrowDown"]) player.y += speed;
-      // 경계 체크
-      player.x = Math.max(0, Math.min(CANVAS_WIDTH - (character?.size || PLAYER_SIZE), player.x));
-      player.y = Math.max(0, Math.min(CANVAS_HEIGHT - (character?.size || PLAYER_SIZE), player.y));
-
-      // 탄막 생성 (난이도에 따라 간격/속도 증가)
-      const now = Date.now();
-      let bulletSpeed = bulletSpeedRef.current;
-      // 세라: 감속 특수효과
-      if (character?.id === "sera" && specialState.slow) {
-        bulletSpeed = bulletSpeedRef.current * 0.4;
-      }
-      if (
-        now - lastBulletTimeRef.current > bulletIntervalRef.current
-      ) {
-        const pos = getRandomEdgePosition();
-        // 난이도에 따라 속도 증가
-        const speed = bulletSpeed + Math.random() * 1.5;
-        bulletsRef.current.push({
-          x: pos.x,
-          y: pos.y,
-          vx: pos.vx * speed,
-          vy: pos.vy * speed,
-        });
-        lastBulletTimeRef.current = now;
-      }
-      // 난이도 점진적 상승
-      if (
-        now - lastDifficultyIncreaseRef.current > DIFFICULTY_INCREASE_INTERVAL
-      ) {
-        bulletIntervalRef.current = Math.max(
-          BULLET_SPAWN_INTERVAL_MIN,
-          bulletIntervalRef.current - 120
-        );
-        bulletSpeedRef.current = Math.min(
-          BULLET_MAX_SPEED,
-          bulletSpeedRef.current + 0.5
-        );
-        lastDifficultyIncreaseRef.current = now;
-      }
-
-      // 탄막 이동 및 그리기
-      bulletsRef.current.forEach((b) => {
-        b.x += b.vx;
-        b.y += b.vy;
-        ctx.beginPath();
-        ctx.arc(b.x, b.y, BULLET_RADIUS, 0, Math.PI * 2);
-        ctx.fillStyle = specialState.slow ? "#a5b4fc" : "#f87171";
-        ctx.globalAlpha = specialState.stealth ? 0.3 : 1.0;
-        ctx.fill();
-        ctx.globalAlpha = 1.0;
-      });
-      // 탄막 화면 밖 제거
-      bulletsRef.current = bulletsRef.current.filter(
-        (b) =>
-          b.x > -BULLET_RADIUS &&
-          b.x < CANVAS_WIDTH + BULLET_RADIUS &&
-          b.y > -BULLET_RADIUS &&
-          b.y < CANVAS_HEIGHT + BULLET_RADIUS
-      );
-
-      // 플레이어 그리기
-      ctx.fillStyle = character?.color || "#60a5fa";
-      ctx.globalAlpha = (specialState.invincible || specialState.stealth) ? 0.4 : 1.0;
-      ctx.fillRect(player.x, player.y, character?.size || PLAYER_SIZE, character?.size || PLAYER_SIZE);
-      // 이리스: 보호막 애니메이션
-      if (character?.id === "iris" && (specialState.shield > 0 || specialState.shieldAnim)) {
+      // 맵 배경
+      ctx.fillStyle = "#222";
+      ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+      // 오브젝트
+      objects.forEach(obj => {
         ctx.save();
-        ctx.beginPath();
-        ctx.arc(
-          player.x + (character?.size || PLAYER_SIZE) / 2,
-          player.y + (character?.size || PLAYER_SIZE) / 2,
-          (character?.size || PLAYER_SIZE) / 2 + 8 + (specialState.shieldAnim ? 6 : 0),
-          0,
-          Math.PI * 2
-        );
-        ctx.strokeStyle = specialState.shieldAnim ? "#fef08a" : "#34d399";
-        ctx.lineWidth = specialState.shieldAnim ? 6 : 4;
-        ctx.globalAlpha = specialState.shieldAnim ? 0.7 : 0.4;
-        ctx.stroke();
-        ctx.globalAlpha = 1.0;
+        if (obj.type === "tree") ctx.fillStyle = "#15803d";
+        if (obj.type === "rock") ctx.fillStyle = "#78716c";
+        if (obj.type === "chest") ctx.fillStyle = storyFlags.chestOpened ? "#fbbf24" : "#a16207";
+        ctx.fillRect(obj.x, obj.y, obj.w, obj.h);
         ctx.restore();
-      }
-      ctx.globalAlpha = 1.0;
-
-      // 점수 계산 (생존 시간)
-      scoreRef.current = Math.floor((now - startTimeRef.current) / 10);
-      ctx.fillStyle = "#fff";
-      ctx.font = "20px sans-serif";
-      ctx.fillText(`점수: ${scoreRef.current}`, 16, 32);
-
-      // 충돌 체크
-      let hit = false;
-      for (const b of bulletsRef.current) {
-        const px = player.x + (character?.size || PLAYER_SIZE) / 2;
-        const py = player.y + (character?.size || PLAYER_SIZE) / 2;
-        const dist = Math.hypot(b.x - px, b.y - py);
-        if (dist < BULLET_RADIUS + (character?.size || PLAYER_SIZE) / 2) {
-          hit = true;
-          break;
+      });
+      // 동료
+      allies.forEach(ally => {
+        if (!ally.joined) {
+          ctx.fillStyle = ally.color;
+          ctx.beginPath();
+          ctx.arc(ally.x + ally.size / 2, ally.y + ally.size / 2, ally.size / 2, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.font = "12px sans-serif";
+          ctx.fillStyle = "#fff";
+          ctx.fillText(ally.name, ally.x, ally.y - 4);
         }
-      }
-      // 특수효과: 무적/은신/보호막 적용
-      if (hit) {
-        if (character?.id === "liad" && !specialState.used) {
-          setSpecialState((s) => ({ ...s, used: true, invincible: true }));
-          setTimeout(() => setSpecialState((s) => ({ ...s, invincible: false })), 1000);
-          hit = false;
-        } else if (character?.id === "kyle" && specialState.stealth) {
-          hit = false;
-        } else if (character?.id === "sera" && specialState.slow) {
-          hit = false;
-        } else if (character?.id === "iris" && specialState.shield > 0) {
-          setSpecialState((s) => ({ ...s, shield: s.shield - 1, shieldAnim: true }));
-          setTimeout(() => setSpecialState((s) => ({ ...s, shieldAnim: false })), 600);
-          hit = false;
+      });
+      // 플레이어
+      ctx.fillStyle = character?.color || "#60a5fa";
+      ctx.fillRect(playerRef.current.x, playerRef.current.y, character?.size || PLAYER_SIZE, character?.size || PLAYER_SIZE);
+      // 동료(합류 시 플레이어 옆)
+      allies.forEach((ally, i) => {
+        if (ally.joined) {
+          ctx.fillStyle = ally.color;
+          ctx.beginPath();
+          ctx.arc(playerRef.current.x - 36 + i * 40, playerRef.current.y + 8, ally.size / 2, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.font = "12px sans-serif";
+          ctx.fillStyle = "#fff";
+          ctx.fillText(ally.name, playerRef.current.x - 36 + i * 40, playerRef.current.y);
         }
-      }
-      if (hit && !specialState.invincible && !specialState.stealth) {
-        runningRef.current = false;
-        onGameOver(scoreRef.current);
-        return;
-      }
-
-      // 적 그리기
-      if (enemy.active) {
+      });
+      // 몬스터/보스
+      enemies.forEach((enemy) => {
+        if (!enemy.active) return;
         ctx.fillStyle = enemy.color;
         ctx.beginPath();
         ctx.arc(enemy.x + enemy.size / 2, enemy.y + enemy.size / 2, enemy.size / 2, 0, Math.PI * 2);
         ctx.fill();
         ctx.font = "12px sans-serif";
-        ctx.fillStyle = "#fff";
+        ctx.fillStyle = enemy.isBoss ? "#facc15" : "#fff";
         ctx.fillText(enemy.name, enemy.x, enemy.y - 4);
-      }
-      // 플레이어-적 충돌 체크
-      if (enemy.active) {
-        const px = player.x + (character?.size || PLAYER_SIZE) / 2;
-        const py = player.y + (character?.size || PLAYER_SIZE) / 2;
+        // 충돌 체크(플레이어)
+        const px = playerRef.current.x + (character?.size || PLAYER_SIZE) / 2;
+        const py = playerRef.current.y + (character?.size || PLAYER_SIZE) / 2;
         const ex = enemy.x + enemy.size / 2;
         const ey = enemy.y + enemy.size / 2;
         const dist = Math.hypot(px - ex, py - ey);
         if (dist < (character?.size || PLAYER_SIZE) / 2 + enemy.size / 2) {
-          // 전투 진입
-          new Howl({ src: [SFX_ENEMY], volume: 0.7 }).play();
-          setEnemy((e) => ({ ...e, active: false }));
+          // 멀티보스/협동 전투 진입: 동료 합류 여부, 여러 보스/몬스터 전달
+          const joinedAllies = allies.filter(a => a.joined);
+          const activeBosses = enemies.filter(e => e.active && e.isBoss);
           onEnterBattle({
             name: enemy.name,
             hp: enemy.hp,
@@ -341,106 +166,58 @@ export default function GameCanvas({ onGameOver, character, onEnterBattle }) {
             attribute: enemy.attribute,
             weapon: "none",
             skills: ["attack", "skill1"],
+            isBoss: enemy.isBoss,
+            allies: joinedAllies,
+            multiBoss: activeBosses.length > 1 ? activeBosses : undefined,
+            storyFlags,
           });
+          running = false;
           return;
         }
-      }
-
-      requestRef.current = requestAnimationFrame(gameLoop);
+      });
+      // 오브젝트 충돌/상호작용(상자 오픈, 동료 합류 등)
+      objects.forEach(obj => {
+        const px = playerRef.current.x + (character?.size || PLAYER_SIZE) / 2;
+        const py = playerRef.current.y + (character?.size || PLAYER_SIZE) / 2;
+        if (
+          px > obj.x && px < obj.x + obj.w &&
+          py > obj.y && py < obj.y + obj.h
+        ) {
+          if (obj.type === "chest" && !storyFlags.chestOpened) {
+            setStoryFlags(f => ({ ...f, chestOpened: true }));
+          }
+        }
+      });
+      // 동료 합류(플레이어가 동료에 닿으면 합류)
+      allies.forEach((ally, i) => {
+        if (!ally.joined) {
+          const px = playerRef.current.x + (character?.size || PLAYER_SIZE) / 2;
+          const py = playerRef.current.y + (character?.size || PLAYER_SIZE) / 2;
+          const ax = ally.x + ally.size / 2;
+          const ay = ally.y + ally.size / 2;
+          const dist = Math.hypot(px - ax, py - ay);
+          if (dist < (character?.size || PLAYER_SIZE) / 2 + ally.size / 2) {
+            setAllies(a => a.map(al => al.id === ally.id ? { ...al, joined: true } : al));
+            setStoryFlags(f => ({ ...f, allyJoined: true }));
+          }
+        }
+      });
+      if (running) requestAnimationFrame(drawLoop);
     }
-    requestRef.current = requestAnimationFrame(gameLoop);
-    return () => {
-      runningRef.current = false;
-      cancelAnimationFrame(requestRef.current);
-    };
-    // eslint-disable-next-line
-  }, [character, specialState]);
-
-  // 플레이어/적 이미지 경로
-  const playerImg = character?.characterImg || "/characters/hero.png";
-  const enemyImg = "https://opengameart.org/sites/default/files/slime_0.png";
-
-  // 무료 샘플 BGM/SFX URL
-  const BGM_EXPLORE = 'https://cdn.pixabay.com/audio/2022/10/16/audio_12b5b8b6b2.mp3';
-  const SFX_ENEMY = 'https://cdn.pixabay.com/audio/2022/03/15/audio_115b9b2e3e.mp3';
-
-  // BGM 관리
-  React.useEffect(() => {
-    const bgm = new Howl({ src: [BGM_EXPLORE], loop: true, volume: 0.3 });
-    bgm.play();
-    return () => { bgm.stop(); };
-  }, []);
-
+    drawLoop();
+    return () => { running = false; };
+  }, [character, enemies, objects, allies, storyFlags, onEnterBattle]);
   return (
     <div className="flex flex-col items-center relative">
-      <div style={{
-        position: 'absolute',
-        width: CANVAS_WIDTH,
-        height: CANVAS_HEIGHT,
-        zIndex: 0,
-        backgroundImage: `url(${character?.mapImg || '/maps/forest.jpg'})`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        borderRadius: '0.5rem',
-        boxShadow: '0 4px 16px #0008',
-      }} />
-      {/* 동적 배경 효과 오버레이 */}
-      {weather === "rain" && <div className="weather-rain" style={{ position: 'absolute', width: CANVAS_WIDTH, height: CANVAS_HEIGHT, zIndex: 1, pointerEvents: 'none' }} />}
-      {weather === "snow" && <div className="weather-snow" style={{ position: 'absolute', width: CANVAS_WIDTH, height: CANVAS_HEIGHT, zIndex: 1, pointerEvents: 'none' }} />}
-      {weather === "fog" && <div className="weather-fog" style={{ position: 'absolute', width: CANVAS_WIDTH, height: CANVAS_HEIGHT, zIndex: 1, pointerEvents: 'none' }} />}
       <canvas
         ref={canvasRef}
         width={CANVAS_WIDTH}
         height={CANVAS_HEIGHT}
-        className="bg-transparent rounded shadow-lg border-2 border-gray-600 relative z-10"
+        className="bg-gray-800 rounded shadow-lg border-2 border-gray-600 relative z-10"
         tabIndex={0}
-        style={{ outline: "none" }}
+        style={{ outline: "none", touchAction: "none" }}
       />
-      {/* 플레이어/적 이미지 오버레이 */}
-      <div style={{
-        position: 'absolute',
-        left: playerRef.current?.x,
-        top: playerRef.current?.y,
-        width: character?.size || PLAYER_SIZE,
-        height: character?.size || PLAYER_SIZE,
-        zIndex: 20,
-        pointerEvents: 'none',
-        transition: 'left 0.1s, top 0.1s',
-      }}>
-        <img src={playerImg} alt="player" style={{ width: '100%', height: '100%', borderRadius: 8 }} />
-      </div>
-      {enemy.active && (
-        <div style={{
-          position: 'absolute',
-          left: enemy.x,
-          top: enemy.y,
-          width: enemy.size,
-          height: enemy.size,
-          zIndex: 20,
-          pointerEvents: 'none',
-          transition: 'left 0.2s, top 0.2s',
-        }}>
-          <img src={enemyImg} alt="enemy" style={{ width: '100%', height: '100%' }} />
-        </div>
-      )}
-      {eventText && (
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-black bg-opacity-70 text-white text-lg px-8 py-4 rounded shadow-lg z-50 animate-fadein">
-          {eventText}
-        </div>
-      )}
-      <div className="mt-2 text-gray-400 text-sm">화살표 키로 이동</div>
-      {character && (
-        <div className="mt-2 p-2 rounded bg-gray-800 text-gray-200 text-center w-80 border border-gray-700">
-          <div className="font-bold text-lg mb-1" style={{ color: character.color }}>{character.name} <span className="text-xs text-gray-400">({character.title})</span></div>
-          <div className="text-xs text-gray-400 mb-1">{character.job}</div>
-          <div className="text-xs text-gray-300">{character.description}</div>
-          <div className="text-xs text-yellow-300 mt-2">특수효과: {character.special}</div>
-          {character.id === "liad" && <div className="text-xs text-blue-400">무적 사용: {specialState.used ? "O" : "X"}</div>}
-          {character.id === "sera" && <div className="text-xs text-blue-400">감속 사용: {specialState.slowUsed ? "O" : "X"} {specialState.slow && "(발동 중)"}</div>}
-          {character.id === "kyle" && <div className="text-xs text-blue-400">은신 쿨타임: {specialState.stealthCooldown > 0 ? `${specialState.stealthCooldown}s` : "사용 가능"} {specialState.stealth && "(발동 중)"}</div>}
-          {character.id === "iris" && <div className="text-xs text-green-400">보호막: {specialState.shield} / 2</div>}
-        </div>
-      )}
+      <div className="mt-2 text-gray-400 text-sm">{`이동: 화살표/WASD, 모바일은 드래그`}</div>
     </div>
   );
 } 
