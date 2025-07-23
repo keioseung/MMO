@@ -63,7 +63,10 @@ function getAttributeColor(attr) {
   return ATTRIBUTES.find((a) => a.id === attr)?.color || "#fff";
 }
 
-export default function BattleScreen({ character, enemy = DEFAULT_ENEMY, onWin, onLose }) {
+export default function BattleScreen({ character, enemy = {}, allies = [], multiBoss = [], storyFlags = {}, onWin, onLose, ...rest }) {
+  if (!enemy || !enemy.name) {
+    return <div className="flex flex-col items-center justify-center bg-gray-900 p-6 rounded-lg shadow-lg w-[420px] min-h-[420px] text-white">전투 데이터 오류: 몬스터 정보가 없습니다.</div>;
+  }
   // 플레이어/적 상태
   const [player, setPlayer] = useState({
     name: character.name,

@@ -115,37 +115,52 @@ export default function GameCanvas({ character, onEnterBattle }) {
       // 동료
       allies.forEach(ally => {
         if (!ally.joined) {
-          ctx.fillStyle = ally.color;
-          ctx.beginPath();
-          ctx.arc(ally.x + ally.size / 2, ally.y + ally.size / 2, ally.size / 2, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.font = "12px sans-serif";
-          ctx.fillStyle = "#fff";
-          ctx.fillText(ally.name, ally.x, ally.y - 4);
+          ctx.save();
+          ctx.globalAlpha = 1;
+          ctx.restore();
         }
       });
-      // 플레이어
-      ctx.fillStyle = character?.color || "#60a5fa";
-      ctx.fillRect(playerRef.current.x, playerRef.current.y, character?.size || PLAYER_SIZE, character?.size || PLAYER_SIZE);
-      // 동료(합류 시 플레이어 옆)
+      // 플레이어 (전신 이미지)
+      if (character?.fullBodyImg) {
+        const img = new window.Image();
+        img.src = character.fullBodyImg;
+        img.onload = () => {
+          ctx.drawImage(img, playerRef.current.x, playerRef.current.y, 48, 72);
+        };
+      } else {
+        ctx.fillStyle = character?.color || "#60a5fa";
+        ctx.fillRect(playerRef.current.x, playerRef.current.y, character?.size || PLAYER_SIZE, character?.size || PLAYER_SIZE);
+      }
+      // 동료(합류 시 플레이어 옆, 전신 이미지)
       allies.forEach((ally, i) => {
-        if (ally.joined) {
+        if (ally.joined && ally.fullBodyImg) {
+          const img = new window.Image();
+          img.src = ally.fullBodyImg;
+          img.onload = () => {
+            ctx.drawImage(img, playerRef.current.x - 36 + i * 40, playerRef.current.y + 8, 36, 54);
+          };
+        } else if (ally.joined) {
           ctx.fillStyle = ally.color;
           ctx.beginPath();
           ctx.arc(playerRef.current.x - 36 + i * 40, playerRef.current.y + 8, ally.size / 2, 0, Math.PI * 2);
           ctx.fill();
-          ctx.font = "12px sans-serif";
-          ctx.fillStyle = "#fff";
-          ctx.fillText(ally.name, playerRef.current.x - 36 + i * 40, playerRef.current.y);
         }
       });
-      // 몬스터/보스
+      // 몬스터/보스 (전신 이미지)
       enemies.forEach((enemy) => {
         if (!enemy.active) return;
-        ctx.fillStyle = enemy.color;
-        ctx.beginPath();
-        ctx.arc(enemy.x + enemy.size / 2, enemy.y + enemy.size / 2, enemy.size / 2, 0, Math.PI * 2);
-        ctx.fill();
+        if (enemy.fullBodyImg) {
+          const img = new window.Image();
+          img.src = enemy.fullBodyImg;
+          img.onload = () => {
+            ctx.drawImage(img, enemy.x, enemy.y, enemy.size * 1.3, enemy.size * 2);
+          };
+        } else {
+          ctx.fillStyle = enemy.color;
+          ctx.beginPath();
+          ctx.arc(enemy.x + enemy.size / 2, enemy.y + enemy.size / 2, enemy.size / 2, 0, Math.PI * 2);
+          ctx.fill();
+        }
         ctx.font = "12px sans-serif";
         ctx.fillStyle = enemy.isBoss ? "#facc15" : "#fff";
         ctx.fillText(enemy.name, enemy.x, enemy.y - 4);

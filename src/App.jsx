@@ -26,6 +26,7 @@ const CHARACTERS = [
     special: "위기 시 1회 자동 무적(피격 시 1초간 무적)",
     characterImg: "https://images.unsplash.com/photo-1511367461989-f85a21fda167?auto=format&fit=facearea&w=256&h=256&facepad=2",
     mapImg: "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=400&q=80",
+    fullBodyImg: "https://opengameart.org/sites/default/files/warrior_full.png"
   },
   {
     id: "sera",
@@ -40,6 +41,7 @@ const CHARACTERS = [
     special: "탄막 전체 1회 감속(Shift키로 발동, 3초간 느려짐)",
     characterImg: "https://images.unsplash.com/photo-1508214751196-bcfd4ca60f91?auto=format&fit=facearea&w=256&h=256&facepad=2",
     mapImg: "https://images.unsplash.com/photo-1464983953574-0892a716854b?auto=format&fit=crop&w=400&q=80",
+    fullBodyImg: "https://opengameart.org/sites/default/files/mage_full.png"
   },
   {
     id: "kyle",
@@ -54,6 +56,7 @@ const CHARACTERS = [
     special: "은신(스페이스바로 1초간 탄막 통과 가능, 쿨타임 8초)",
     characterImg: "https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=facearea&w=256&h=256&facepad=2",
     mapImg: "https://images.unsplash.com/photo-1465101046530-73398c7f28ca?auto=format&fit=crop&w=400&q=80",
+    fullBodyImg: "https://opengameart.org/sites/default/files/archer_full.png"
   },
   {
     id: "iris",
@@ -68,6 +71,7 @@ const CHARACTERS = [
     special: "30초마다 자동 보호막(1회 피격 무시, 최대 2회 중첩)",
     characterImg: "https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?auto=format&fit=facearea&w=256&h=256&facepad=2",
     mapImg: "https://images.unsplash.com/photo-1502082553048-f009c37129b9?auto=format&fit=crop&w=400&q=80",
+    fullBodyImg: "https://opengameart.org/sites/default/files/sorceress_full.png"
   },
 ];
 
