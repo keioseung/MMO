@@ -1,6 +1,6 @@
 import React from "react";
 
-export default function GameOverScreen({ score, bestScore, onRestart, character }) {
+export default function GameOverScreen({ score, bestScore, onRestart, character, ranking = [], achievements = {}, achievementList = [] }) {
   const getMessage = () => {
     if (!character) return "모험이 여기서 끝났습니다.";
     // 엔딩 분기 예시
@@ -38,6 +38,27 @@ export default function GameOverScreen({ score, bestScore, onRestart, character 
         <div>최고점: <span className="font-bold text-blue-400">{bestScore}</span></div>
       </div>
       <div className="text-gray-300 text-center mb-2 min-h-[40px]">{getMessage()}</div>
+      {/* 랭킹 리스트 */}
+      <div className="w-64 bg-gray-900 rounded p-2 mt-2 mb-2 border border-gray-700">
+        <div className="font-bold text-yellow-300 mb-1">🏆 랭킹 TOP 10</div>
+        {ranking.length === 0 && <div className="text-xs text-gray-400">기록 없음</div>}
+        {ranking.map((r, i) => (
+          <div key={i} className={`flex flex-row justify-between text-xs px-2 py-1 rounded ${r.score === score ? 'bg-yellow-900 text-yellow-200 font-bold' : 'text-gray-300'}`}>
+            <span>{i+1}. {r.name}</span>
+            <span>{r.score}</span>
+          </div>
+        ))}
+      </div>
+      {/* 업적 리스트 */}
+      <div className="w-64 bg-gray-900 rounded p-2 mt-2 mb-2 border border-gray-700">
+        <div className="font-bold text-green-300 mb-1">🏅 업적</div>
+        {achievementList.map((a) => (
+          <div key={a.id} className={`flex flex-row justify-between text-xs px-2 py-1 rounded ${achievements[a.id] ? 'bg-green-900 text-green-200 font-bold' : 'text-gray-500 opacity-60'}`}>
+            <span>{a.name}</span>
+            <span>{a.desc}</span>
+          </div>
+        ))}
+      </div>
       <button
         className="px-6 py-2 bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded transition"
         onClick={onRestart}

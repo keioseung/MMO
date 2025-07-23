@@ -1,3 +1,117 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities; 
+.hit-flash {
+  animation: hit-flash 0.4s;
+}
+@keyframes hit-flash {
+  0% { filter: brightness(2) drop-shadow(0 0 8px #fff); }
+  100% { filter: none; }
+}
+.skill-glow {
+  animation: skill-glow 0.6s;
+}
+@keyframes skill-glow {
+  0% { box-shadow: 0 0 16px 8px #a5b4fc; filter: brightness(1.5); }
+  100% { box-shadow: none; filter: none; }
+}
+.guard-glow {
+  animation: guard-glow 0.6s;
+}
+@keyframes guard-glow {
+  0% { box-shadow: 0 0 16px 8px #34d399; filter: brightness(1.3); }
+  100% { box-shadow: none; filter: none; }
+}
+.hit-shake {
+  animation: hit-shake 0.4s;
+}
+@keyframes hit-shake {
+  0% { transform: translateX(0); }
+  20% { transform: translateX(-8px); }
+  40% { transform: translateX(8px); }
+  60% { transform: translateX(-6px); }
+  80% { transform: translateX(6px); }
+  100% { transform: translateX(0); }
+} 
+.weather-rain {
+  pointer-events: none;
+  background-image: repeating-linear-gradient(
+    120deg,
+    rgba(180,220,255,0.18) 0px,
+    rgba(180,220,255,0.18) 2px,
+    transparent 2px,
+    transparent 8px
+  );
+  animation: rain-move 0.7s linear infinite;
+}
+@keyframes rain-move {
+  0% { background-position: 0 0; }
+  100% { background-position: 40px 80px; }
+}
+.weather-snow {
+  pointer-events: none;
+  background-image: radial-gradient(circle, #fff9 1.5px, transparent 2.5px), radial-gradient(circle, #fff7 1.5px, transparent 2.5px);
+  background-size: 16px 16px, 32px 32px;
+  background-position: 0 0, 8px 8px;
+  animation: snow-move 2.5s linear infinite;
+}
+@keyframes snow-move {
+  0% { background-position: 0 0, 8px 8px; }
+  100% { background-position: 0 32px, 8px 40px; }
+}
+.weather-fog {
+  pointer-events: none;
+  background: linear-gradient(120deg, #fff3 0%, #fff2 50%, #fff3 100%);
+  opacity: 0.5;
+  animation: fog-move 6s linear infinite alternate;
+}
+@keyframes fog-move {
+  0% { filter: blur(2px); }
+  100% { filter: blur(8px); }
+} 
+.animate-fadein {
+  animation: fadein 0.4s;
+}
+@keyframes fadein {
+  0% { opacity: 0.85; }
+  100% { opacity: 0; }
+}
+.animate-fadeout {
+  animation: fadeout 0.4s;
+}
+@keyframes fadeout {
+  0% { opacity: 0; }
+  100% { opacity: 0.85; }
+} 
+.particle-fire {
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 120px; height: 120px;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 30;
+  background: radial-gradient(circle, #ffb347 0%, #ff6347 60%, transparent 100%);
+  opacity: 0.7;
+  animation: fire-burst 0.7s;
+}
+@keyframes fire-burst {
+  0% { opacity: 0.2; transform: translate(-50%, -50%) scale(0.5); }
+  60% { opacity: 0.9; transform: translate(-50%, -50%) scale(1.1); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.4); }
+}
+.particle-aura {
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 180px; height: 180px;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 30;
+  background: radial-gradient(circle, #a5b4fc 0%, #818cf8 60%, transparent 100%);
+  opacity: 0.5;
+  animation: aura-pulse 1.2s;
+}
+@keyframes aura-pulse {
+  0% { opacity: 0.1; transform: translate(-50%, -50%) scale(0.7); }
+  50% { opacity: 0.7; transform: translate(-50%, -50%) scale(1.1); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.5); }
+} 

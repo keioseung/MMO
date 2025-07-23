@@ -14,16 +14,18 @@ export default function StartScreen({ onStart, characters, selectedCharacter, on
           <button
             key={char.id}
             onClick={() => onSelectCharacter(char)}
-            className={`flex flex-col items-center p-4 rounded-lg border-2 transition shadow-md w-40 h-48 focus:outline-none ${
+            className={`flex flex-col items-center p-4 rounded-lg border-2 transition shadow-md w-40 h-64 focus:outline-none ${
               selectedCharacter?.id === char.id
                 ? "border-yellow-400 bg-gray-700 scale-105"
                 : "border-gray-600 bg-gray-900 hover:border-blue-400"
             }`}
             type="button"
           >
-            <div
-              className="w-12 h-12 rounded-full mb-2 border-2"
-              style={{ background: char.color, borderColor: selectedCharacter?.id === char.id ? '#fbbf24' : char.color }}
+            <img
+              src={char.characterImg}
+              alt={char.name}
+              className="w-16 h-16 rounded-full mb-2 object-cover border-2"
+              style={{ borderColor: selectedCharacter?.id === char.id ? '#fbbf24' : char.color }}
             />
             <div className="font-bold text-lg mb-1">{char.name}</div>
             <div className="text-xs text-gray-400 mb-1">{char.title}</div>

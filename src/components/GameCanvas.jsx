@@ -1,4 +1,5 @@
 import React, { useRef, useEffect } from "react";
+import { Howl } from 'howler';
 
 const CANVAS_WIDTH = 400;
 const CANVAS_HEIGHT = 600;
@@ -41,7 +42,7 @@ function getRandomEdgePosition() {
   }
 }
 
-export default function GameCanvas({ onGameOver, character }) {
+export default function GameCanvas({ onGameOver, character, onEnterBattle }) {
   const canvasRef = useRef(null);
   const requestRef = useRef();
   const runningRef = useRef(true);
@@ -77,6 +78,23 @@ export default function GameCanvas({ onGameOver, character }) {
     "공허의 군주가 어둠 속에서 움직이기 시작했다.",
     "에테르의 흐름이 불안정해진다. 운명의 선택이 다가온다..."
   ];
+  // 적 상태
+  const [enemy, setEnemy] = React.useState({
+    x: 100,
+    y: 100,
+    size: 36,
+    active: true,
+    name: "파이어 슬라임",
+    attribute: "fire",
+    color: "#f87171",
+    hp: 80,
+    maxHp: 80,
+  });
+  // 동적 배경 효과 종류 (비, 눈, 안개)
+  const [weather, setWeather] = React.useState(() => {
+    const effects = ["rain", "snow", "fog", null];
+    return effects[Math.floor(Math.random() * effects.length)];
+  });
 
   // 키 입력 처리 (특수효과)
   useEffect(() => {
@@ -135,6 +153,19 @@ export default function GameCanvas({ onGameOver, character }) {
     });
     return () => timers.forEach(clearTimeout);
   }, []);
+
+  // 적 랜덤 등장/이동 (간단 버전)
+  React.useEffect(() => {
+    if (!enemy.active) return;
+    const move = setInterval(() => {
+      setEnemy((e) => ({
+        ...e,
+        x: Math.random() * (CANVAS_WIDTH - e.size),
+        y: Math.random() * (CANVAS_HEIGHT / 2 - e.size),
+      }));
+    }, 2000);
+    return () => clearInterval(move);
+  }, [enemy.active]);
 
   // 게임 루프
   useEffect(() => {
@@ -282,6 +313,39 @@ export default function GameCanvas({ onGameOver, character }) {
         return;
       }
 
+      // 적 그리기
+      if (enemy.active) {
+        ctx.fillStyle = enemy.color;
+        ctx.beginPath();
+        ctx.arc(enemy.x + enemy.size / 2, enemy.y + enemy.size / 2, enemy.size / 2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.font = "12px sans-serif";
+        ctx.fillStyle = "#fff";
+        ctx.fillText(enemy.name, enemy.x, enemy.y - 4);
+      }
+      // 플레이어-적 충돌 체크
+      if (enemy.active) {
+        const px = player.x + (character?.size || PLAYER_SIZE) / 2;
+        const py = player.y + (character?.size || PLAYER_SIZE) / 2;
+        const ex = enemy.x + enemy.size / 2;
+        const ey = enemy.y + enemy.size / 2;
+        const dist = Math.hypot(px - ex, py - ey);
+        if (dist < (character?.size || PLAYER_SIZE) / 2 + enemy.size / 2) {
+          // 전투 진입
+          new Howl({ src: [SFX_ENEMY], volume: 0.7 }).play();
+          setEnemy((e) => ({ ...e, active: false }));
+          onEnterBattle({
+            name: enemy.name,
+            hp: enemy.hp,
+            maxHp: enemy.maxHp,
+            attribute: enemy.attribute,
+            weapon: "none",
+            skills: ["attack", "skill1"],
+          });
+          return;
+        }
+      }
+
       requestRef.current = requestAnimationFrame(gameLoop);
     }
     requestRef.current = requestAnimationFrame(gameLoop);
@@ -292,16 +356,73 @@ export default function GameCanvas({ onGameOver, character }) {
     // eslint-disable-next-line
   }, [character, specialState]);
 
+  // 플레이어/적 이미지 경로
+  const playerImg = character?.characterImg || "/characters/hero.png";
+  const enemyImg = "https://opengameart.org/sites/default/files/slime_0.png";
+
+  // 무료 샘플 BGM/SFX URL
+  const BGM_EXPLORE = 'https://cdn.pixabay.com/audio/2022/10/16/audio_12b5b8b6b2.mp3';
+  const SFX_ENEMY = 'https://cdn.pixabay.com/audio/2022/03/15/audio_115b9b2e3e.mp3';
+
+  // BGM 관리
+  React.useEffect(() => {
+    const bgm = new Howl({ src: [BGM_EXPLORE], loop: true, volume: 0.3 });
+    bgm.play();
+    return () => { bgm.stop(); };
+  }, []);
+
   return (
-    <div className="flex flex-col items-center">
+    <div className="flex flex-col items-center relative">
+      <div style={{
+        position: 'absolute',
+        width: CANVAS_WIDTH,
+        height: CANVAS_HEIGHT,
+        zIndex: 0,
+        backgroundImage: `url(${character?.mapImg || '/maps/forest.jpg'})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        borderRadius: '0.5rem',
+        boxShadow: '0 4px 16px #0008',
+      }} />
+      {/* 동적 배경 효과 오버레이 */}
+      {weather === "rain" && <div className="weather-rain" style={{ position: 'absolute', width: CANVAS_WIDTH, height: CANVAS_HEIGHT, zIndex: 1, pointerEvents: 'none' }} />}
+      {weather === "snow" && <div className="weather-snow" style={{ position: 'absolute', width: CANVAS_WIDTH, height: CANVAS_HEIGHT, zIndex: 1, pointerEvents: 'none' }} />}
+      {weather === "fog" && <div className="weather-fog" style={{ position: 'absolute', width: CANVAS_WIDTH, height: CANVAS_HEIGHT, zIndex: 1, pointerEvents: 'none' }} />}
       <canvas
         ref={canvasRef}
         width={CANVAS_WIDTH}
         height={CANVAS_HEIGHT}
-        className="bg-gray-700 rounded shadow-lg border-2 border-gray-600"
+        className="bg-transparent rounded shadow-lg border-2 border-gray-600 relative z-10"
         tabIndex={0}
         style={{ outline: "none" }}
       />
+      {/* 플레이어/적 이미지 오버레이 */}
+      <div style={{
+        position: 'absolute',
+        left: playerRef.current?.x,
+        top: playerRef.current?.y,
+        width: character?.size || PLAYER_SIZE,
+        height: character?.size || PLAYER_SIZE,
+        zIndex: 20,
+        pointerEvents: 'none',
+        transition: 'left 0.1s, top 0.1s',
+      }}>
+        <img src={playerImg} alt="player" style={{ width: '100%', height: '100%', borderRadius: 8 }} />
+      </div>
+      {enemy.active && (
+        <div style={{
+          position: 'absolute',
+          left: enemy.x,
+          top: enemy.y,
+          width: enemy.size,
+          height: enemy.size,
+          zIndex: 20,
+          pointerEvents: 'none',
+          transition: 'left 0.2s, top 0.2s',
+        }}>
+          <img src={enemyImg} alt="enemy" style={{ width: '100%', height: '100%' }} />
+        </div>
+      )}
       {eventText && (
         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-black bg-opacity-70 text-white text-lg px-8 py-4 rounded shadow-lg z-50 animate-fadein">
           {eventText}
